@@ -84,9 +84,54 @@ sed -i 's|#include <linux/task_work.h>|#include <linux/task_work.h>\n#include <l
 grep -rl TWA_RESUME KernelSU/kernel | xargs -r sed -i 's/TWA_RESUME/true/g'
 # 5.4 没有 include/linux/minmax.h (min/max/clamp 宏在 kernel.h 里)
 echo '#include <linux/kernel.h>' > include/linux/minmax.h
-# SukiSU 的 selinux 层需要 5.7+ 内核结构, 换成 rsuntk 的全版本兼容实现 (API 完全一致)
-rm -rf KernelSU/kernel/selinux
-cp -r "$BASE_PATH/rksu_selinux" KernelSU/kernel/selinux
+# SukiSU 的 selinux 层需要 5.7+ 内核结构。混合方案:
+#   selinux.c/selinux.h 保留 SukiSU 版 (0错误, 提供 ksu_file_sid/setup_ksu_cred 等)
+#   rules.c/sepolicy.c/sepolicy.h 用 rsuntk legacy 版 (全版本兼容实现)
+cp "$BASE_PATH/rksu_selinux/selinux.c" KernelSU/kernel/selinux/selinux.c
+cp "$BASE_PATH/rksu_selinux/selinux.h" KernelSU/kernel/selinux/selinux.h
+cp "$BASE_PATH/rksu_selinux/rules.c" KernelSU/kernel/selinux/rules.c
+cp "$BASE_PATH/rksu_selinux/sepolicy.c" KernelSU/kernel/selinux/sepolicy.c
+cp "$BASE_PATH/rksu_selinux/sepolicy.h" KernelSU/kernel/selinux/sepolicy.h
+# selinux_hide 依赖 5.7+ selinux_state 内部成员, 用空操作存根替代
+cp "$BASE_PATH/selinux_hide_stub.c" KernelSU/kernel/feature/selinux_hide.c
+# rsuntk 代码需要的兼容探测宏追加到 Kbuild
+cat >> KernelSU/kernel/Kbuild <<'KBEOF'
+
+# 5.4 compat detection for rsuntk selinux implementation
+ifeq ($(shell grep -q " current_sid(void)" $(srctree)/security/selinux/include/objsec.h; echo $$?),0)
+ccflags-y += -DKSU_COMPAT_HAS_CURRENT_SID
+endif
+ifeq ($(shell grep -q "struct selinux_state " $(srctree)/security/selinux/include/security.h; echo $$?),0)
+ccflags-y += -DKSU_COMPAT_HAS_SELINUX_STATE
+endif
+KBEOF
+python3 - <<'PYEOF'
+import re
+
+def patch(path, old, new, must=True):
+    s = open(path).read()
+    if old not in s:
+        if must:
+            raise SystemExit('pattern not found in ' + path)
+        return
+    open(path, 'w').write(s.replace(old, new))
+
+# 5.4: cpu_spoof 的 vdso_clock_mode 在 arm64 5.4 里是 archdata.clock_mode
+patch('KernelSU/kernel/feature/cpu_spoof.c', '->vdso_clock_mode', '->archdata.clock_mode')
+
+# 5.4: seccomp.filter_count 是 5.9+ 才有的成员, 用版本开关包起来
+patch('KernelSU/kernel/policy/app_profile.c',
+      '    atomic_set(&current->seccomp.filter_count, 0);',
+      '#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)\n'
+      '    atomic_set(&current->seccomp.filter_count, 0);\n'
+      '#endif')
+
+# 5.4: copy_from/to_user_nofault 是 5.8 改名, 老名字是 probe_kernel_read/write
+s = open('KernelSU/kernel/runtime/ksud_integration.c').read()
+s = s.replace('copy_from_user_nofault', 'probe_kernel_read')
+s = s.replace('copy_to_user_nofault', 'probe_kernel_write')
+open('KernelSU/kernel/runtime/ksud_integration.c', 'w').write(s)
+PYEOF
 # dispatch.c 补 tasklist_lock/init_task/task_pgrp/task_session 所需头文件
 sed -i 's|#include <linux/version.h>|#include <linux/version.h>\n#include <linux/sched/signal.h>\n#include <linux/sched/task.h>|' KernelSU/kernel/supercall/dispatch.c
 python3 - <<'PYEOF'
