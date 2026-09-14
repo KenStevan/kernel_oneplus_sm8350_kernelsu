@@ -77,7 +77,9 @@ echo '#include <asm/pgtable.h>' > include/linux/pgtable.h
 sed -i 's/copy_to_kernel_nofault/probe_kernel_write/g' KernelSU/kernel/hook/arm64/patch_memory.c KernelSU/kernel/hook/x86_64/patch_memory.c
 # 5.4 没有 SECCOMP_ARCH_NATIVE_NR (新版 seccomp 动作缓存引入), arm64 上它等于 NR_syscalls
 sed -i 's|#include "infra/seccomp_cache.h"|#include "infra/seccomp_cache.h"\n#include <asm/unistd.h>\n#ifndef SECCOMP_ARCH_NATIVE_NR\n#define SECCOMP_ARCH_NATIVE_NR NR_syscalls\n#endif|' KernelSU/kernel/infra/seccomp_cache.c
-# 5.4 的 fsnotify_ops 用 handle_event (5.9 才改成 handle_inode_event), 给 pkg_observer 加老 API 转发
+# 5.4: TWA_RESUME 是 5.9 的枚举, 老内核第三个参数是布尔; put_task_struct 需要 sched/task.h
+sed -i 's/task_work_add(tsk, cb, TWA_RESUME)/task_work_add(tsk, cb, true)/' KernelSU/kernel/policy/allowlist.c
+sed -i 's|#include <linux/task_work.h>|#include <linux/task_work.h>\n#include <linux/sched/task.h>|' KernelSU/kernel/policy/allowlist.c
 python3 - <<'PYEOF'
 p = 'KernelSU/kernel/manager/pkg_observer.c'
 s = open(p).read()
@@ -146,7 +148,7 @@ cd kernel
 export PATH="$BASE_PATH/toolchain/bin:${PATH}"
 MAKE_ARGS="CC=clang O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CFLAGS=-Wno-enum-compare"
 make $MAKE_ARGS "vendor/lahaina-qgki_defconfig"
-make $MAKE_ARGS -j"$(nproc --all)"
+make $MAKE_ARGS -k -j"$(nproc --all)"
 cd $BASE_PATH
 cp kernel/out/arch/arm64/boot/Image AnyKernel3/
 
