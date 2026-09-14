@@ -71,6 +71,8 @@ git apply ../0002-backport-strncpy-from-user-nofault.patch
 git apply ../0003-no-dirty-flag.patch
 echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 echo "CONFIG_KPM=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
+# 5.4 内核没有 linux/pgtable.h (5.8 才引入), 加兼容垫片给 SukiSU sucompat.c 用
+echo '#include <asm/pgtable.h>' > include/linux/pgtable.h
 cd $BASE_PATH
 
 #SUSFS
