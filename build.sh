@@ -151,6 +151,24 @@ s = open('KernelSU/kernel/supercall/dispatch.c').read()
 s = s.replace('handle_sepolicy((void __user *)cmd.data, cmd.data_len)',
               'handle_sepolicy((unsigned long)cmd.data_len, (void __user *)cmd.data)')
 open('KernelSU/kernel/supercall/dispatch.c', 'w').write(s)
+
+# 5.4: seccomp_filter_release 是 5.9+ 名字, 5.4 叫 put_seccomp_filter (参数相同)
+s = open('KernelSU/kernel/policy/app_profile.c').read()
+s = s.replace('seccomp_filter_release', 'put_seccomp_filter')
+open('KernelSU/kernel/policy/app_profile.c', 'w').write(s)
+
+# 5.4: path_mount 是 5.10 才从 do_change_type 改名导出的, 给内核补一个转发包装
+ns = open('fs/namespace.c').read()
+if 'int path_mount(' not in ns:
+    ns += '''
+// KSU 5.4 compat: expose do_change_type as path_mount (propagation-only usage)
+int path_mount(const char *dev_name, struct path *path, const char *type_page,
+	       unsigned long flags, void *data_page)
+{
+	return do_change_type(path, flags);
+}
+'''
+    open('fs/namespace.c', 'w').write(ns)
 PYEOF
 # dispatch.c 补 tasklist_lock/init_task/task_pgrp/task_session 所需头文件
 sed -i 's|#include <linux/version.h>|#include <linux/version.h>\n#include <linux/sched/signal.h>\n#include <linux/sched/task.h>|' KernelSU/kernel/supercall/dispatch.c
