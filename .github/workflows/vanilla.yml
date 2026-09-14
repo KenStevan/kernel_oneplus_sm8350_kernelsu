@@ -1,0 +1,19 @@
+name: build vanilla kernel
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout script
+        uses: actions/checkout@v4
+      - name: run build script
+        run: |
+          chmod +x build_vanilla.sh
+          bash build_vanilla.sh
+      - name: upload kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanilla-kernel
+          path: |
+            AnyKernel3/*
