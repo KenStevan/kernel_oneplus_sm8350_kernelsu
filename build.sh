@@ -131,6 +131,26 @@ s = open('KernelSU/kernel/runtime/ksud_integration.c').read()
 s = s.replace('copy_from_user_nofault', 'probe_kernel_read')
 s = s.replace('copy_to_user_nofault', 'probe_kernel_write')
 open('KernelSU/kernel/runtime/ksud_integration.c', 'w').write(s)
+
+# rsuntk legacy 文件适配 SukiSU 目录结构
+for f in ('KernelSU/kernel/selinux/rules.c', 'KernelSU/kernel/selinux/sepolicy.c'):
+    s = open(f).read()
+    s = s.replace('#include "../klog.h"', '#include "klog.h"')
+    open(f, 'w').write(s)
+# avc_ss_reset 两参数版声明在 avc_ss.h, rules.c 没包含它
+s = open('KernelSU/kernel/selinux/rules.c').read()
+s = s.replace('#include "ss/services.h"', '#include "ss/services.h"\n#include "avc_ss.h"')
+open('KernelSU/kernel/selinux/rules.c', 'w').write(s)
+# kernel_compat.h 的 nofault 快速路径在 5.4 不存在, 直接走安全慢路径
+s = open('KernelSU/kernel/kernel_compat.h').read()
+s = s.replace('long ret = copy_from_user_nofault(to, from, count);',
+              'long ret = 1; /* 5.4: no nofault api, straight to safe path */')
+open('KernelSU/kernel/kernel_compat.h', 'w').write(s)
+# handle_sepolicy 参数顺序: rsuntk 定义是 (arg3 未用, arg4 用户指针), 修 SukiSU 调用方
+s = open('KernelSU/kernel/supercall/dispatch.c').read()
+s = s.replace('handle_sepolicy((void __user *)cmd.data, cmd.data_len)',
+              'handle_sepolicy((unsigned long)cmd.data_len, (void __user *)cmd.data)')
+open('KernelSU/kernel/supercall/dispatch.c', 'w').write(s)
 PYEOF
 # dispatch.c 补 tasklist_lock/init_task/task_pgrp/task_session 所需头文件
 sed -i 's|#include <linux/version.h>|#include <linux/version.h>\n#include <linux/sched/signal.h>\n#include <linux/sched/task.h>|' KernelSU/kernel/supercall/dispatch.c
