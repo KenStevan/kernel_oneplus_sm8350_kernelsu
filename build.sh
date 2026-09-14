@@ -69,6 +69,8 @@ curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kern
 git apply ../0001-backport-path-umount.patch
 git apply ../0002-backport-strncpy-from-user-nofault.patch
 git apply ../0003-no-dirty-flag.patch
+echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
+echo "CONFIG_KPM=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 cd $BASE_PATH
 
 #SUSFS
