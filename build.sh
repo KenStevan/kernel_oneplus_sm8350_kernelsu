@@ -77,6 +77,10 @@ git apply ../0002-backport-strncpy-from-user-nofault.patch
 git apply ../0003-no-dirty-flag.patch
 echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 echo "CONFIG_KPM=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
+# 新版 Neutron clang 与 5.4 老内核的 CFI/LTO/SCS 加固不兼容 (CFI 类型哈希布局变化会导致无法启动), 全部关闭
+echo "# CONFIG_LTO_CLANG is not set" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
+echo "# CONFIG_CFI_CLANG is not set" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
+echo "# CONFIG_SHADOW_CALL_STACK is not set" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 # 5.4 内核没有 linux/pgtable.h (5.8 才引入), 加兼容垫片给 SukiSU sucompat.c 用
 echo '#include <asm/pgtable.h>' > include/linux/pgtable.h
 # 5.4 里 copy_to_kernel_nofault 叫 probe_kernel_write (5.8 改名, 签名相同)
