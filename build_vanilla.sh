@@ -35,7 +35,7 @@ cd $BASE_PATH
 
 # ROM commit 自带语法错误修复
 python3 - <<'PYEOF'
-s = open('fs/userfaultfd.c').read()
+s = open('kernel/fs/userfaultfd.c').read()
 s = s.replace('vma_pad_fixup_flags(vma, new_flags););', 'vma_pad_fixup_flags(vma, new_flags));')
 open('fs/userfaultfd.c', 'w').write(s)
 PYEOF
