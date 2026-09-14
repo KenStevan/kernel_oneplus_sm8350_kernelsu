@@ -77,6 +77,29 @@ echo '#include <asm/pgtable.h>' > include/linux/pgtable.h
 sed -i 's/copy_to_kernel_nofault/probe_kernel_write/g' KernelSU/kernel/hook/arm64/patch_memory.c KernelSU/kernel/hook/x86_64/patch_memory.c
 # 5.4 没有 SECCOMP_ARCH_NATIVE_NR (新版 seccomp 动作缓存引入), arm64 上它等于 NR_syscalls
 sed -i 's|#include "infra/seccomp_cache.h"|#include "infra/seccomp_cache.h"\n#include <asm/unistd.h>\n#ifndef SECCOMP_ARCH_NATIVE_NR\n#define SECCOMP_ARCH_NATIVE_NR NR_syscalls\n#endif|' KernelSU/kernel/infra/seccomp_cache.c
+# 5.4 的 fsnotify_ops 用 handle_event (5.9 才改成 handle_inode_event), 给 pkg_observer 加老 API 转发
+python3 - <<'PYEOF'
+p = 'KernelSU/kernel/manager/pkg_observer.c'
+s = open(p).read()
+old = '''static const struct fsnotify_ops ksu_ops = {
+    .handle_inode_event = ksu_handle_inode_event,
+};'''
+new = '''#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+static const struct fsnotify_ops ksu_ops = {
+    .handle_inode_event = ksu_handle_inode_event,
+};
+#else
+static int ksu_handle_event_legacy(struct fsnotify_group *group, struct inode *inode, u32 mask, const void *data, int data_type, const struct qstr *file_name, u32 cookie, struct fsnotify_iter_info *iter_info)
+{
+    return ksu_handle_inode_event(NULL, mask, inode, NULL, file_name, cookie);
+}
+static const struct fsnotify_ops ksu_ops = {
+    .handle_event = ksu_handle_event_legacy,
+};
+#endif'''
+assert old in s, 'pattern not found in pkg_observer.c'
+open(p, 'w').write(s.replace(old, new))
+PYEOF
 cd $BASE_PATH
 
 #SUSFS
