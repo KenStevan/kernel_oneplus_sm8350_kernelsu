@@ -80,6 +80,15 @@ sed -i 's|#include "infra/seccomp_cache.h"|#include "infra/seccomp_cache.h"\n#in
 # 5.4: TWA_RESUME 是 5.9 的枚举, 老内核第三个参数是布尔; put_task_struct 需要 sched/task.h
 sed -i 's/task_work_add(tsk, cb, TWA_RESUME)/task_work_add(tsk, cb, true)/' KernelSU/kernel/policy/allowlist.c
 sed -i 's|#include <linux/task_work.h>|#include <linux/task_work.h>\n#include <linux/sched/task.h>|' KernelSU/kernel/policy/allowlist.c
+# 全局替换其余 TWA_RESUME (supercall.c 等)
+grep -rl TWA_RESUME KernelSU/kernel | xargs -r sed -i 's/TWA_RESUME/true/g'
+# 5.4 没有 include/linux/minmax.h (min/max/clamp 宏在 kernel.h 里)
+echo '#include <linux/kernel.h>' > include/linux/minmax.h
+# SukiSU 的 selinux 层需要 5.7+ 内核结构, 换成 rsuntk 的全版本兼容实现 (API 完全一致)
+rm -rf KernelSU/kernel/selinux
+cp -r "$BASE_PATH/rksu_selinux" KernelSU/kernel/selinux
+# dispatch.c 补 tasklist_lock/init_task/task_pgrp/task_session 所需头文件
+sed -i 's|#include <linux/version.h>|#include <linux/version.h>\n#include <linux/sched/signal.h>\n#include <linux/sched/task.h>|' KernelSU/kernel/supercall/dispatch.c
 python3 - <<'PYEOF'
 p = 'KernelSU/kernel/manager/pkg_observer.c'
 s = open(p).read()
