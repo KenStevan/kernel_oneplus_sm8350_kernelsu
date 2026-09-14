@@ -21,8 +21,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 BASE_PATH=$(pwd)
-export KBUILD_BUILD_HOST=github
-export KBUILD_BUILD_USER=github
+export KBUILD_BUILD_HOST=Stevans-MacBookPro
+export KBUILD_BUILD_USER=Stevan
 export ARCH=arm64
 echo ">${BASE_PATH}"
 
@@ -75,6 +75,8 @@ echo "CONFIG_KPM=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 echo '#include <asm/pgtable.h>' > include/linux/pgtable.h
 # 5.4 里 copy_to_kernel_nofault 叫 probe_kernel_write (5.8 改名, 签名相同)
 sed -i 's/copy_to_kernel_nofault/probe_kernel_write/g' KernelSU/kernel/hook/arm64/patch_memory.c KernelSU/kernel/hook/x86_64/patch_memory.c
+# 5.4 没有 SECCOMP_ARCH_NATIVE_NR (新版 seccomp 动作缓存引入), arm64 上它等于 NR_syscalls
+sed -i 's|#include "infra/seccomp_cache.h"|#include "infra/seccomp_cache.h"\n#include <asm/unistd.h>\n#ifndef SECCOMP_ARCH_NATIVE_NR\n#define SECCOMP_ARCH_NATIVE_NR NR_syscalls\n#endif|' KernelSU/kernel/infra/seccomp_cache.c
 cd $BASE_PATH
 
 #SUSFS
