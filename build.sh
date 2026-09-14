@@ -73,6 +73,8 @@ echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 echo "CONFIG_KPM=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 # 5.4 内核没有 linux/pgtable.h (5.8 才引入), 加兼容垫片给 SukiSU sucompat.c 用
 echo '#include <asm/pgtable.h>' > include/linux/pgtable.h
+# 5.4 里 copy_to_kernel_nofault 叫 probe_kernel_write (5.8 改名, 签名相同)
+sed -i 's/copy_to_kernel_nofault/probe_kernel_write/g' KernelSU/kernel/hook/arm64/patch_memory.c KernelSU/kernel/hook/x86_64/patch_memory.c
 cd $BASE_PATH
 
 #SUSFS
