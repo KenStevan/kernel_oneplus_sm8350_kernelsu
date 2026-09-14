@@ -110,6 +110,9 @@ endif
 ifeq ($(shell grep -q "struct selinux_state " $(srctree)/security/selinux/include/security.h; echo $$?),0)
 ccflags-y += -DKSU_COMPAT_HAS_SELINUX_STATE
 endif
+ifeq ($(shell grep -q "security_inode_init_security_anon" $(srctree)/include/linux/security.h; echo $$?),0)
+ccflags-y += -DKSU_COMPAT_HAS_ANON_SEC
+endif
 KBEOF
 python3 - <<'PYEOF'
 import re
@@ -175,6 +178,35 @@ int path_mount(const char *dev_name, struct path *path, const char *type_page,
 }
 '''
     open('fs/namespace.c', 'w').write(ns)
+
+# ROM 内核 commit 07863b33 提交时带了一处语法错误 (ROM 实际是 dirty 编译的), 修掉
+s = open('fs/userfaultfd.c').read()
+s = s.replace('vma_pad_fixup_flags(vma, new_flags););',
+              'vma_pad_fixup_flags(vma, new_flags));')
+open('fs/userfaultfd.c', 'w').write(s)
+
+# 老内核缺 security_inode_init_security_anon (file_wrapper.c 用到), 用宏开关降级
+s = open('KernelSU/kernel/infra/file_wrapper.c').read()
+old = '''    inode->i_flags &= ~S_PRIVATE;
+    error = security_inode_init_security_anon(inode, &qname, context_inode);
+    if (error) {
+        iput(inode);
+        return ERR_PTR(error);
+    }'''
+new = '''#ifdef KSU_COMPAT_HAS_ANON_SEC
+    inode->i_flags &= ~S_PRIVATE;
+    error = security_inode_init_security_anon(inode, &qname, context_inode);
+    if (error) {
+        iput(inode);
+        return ERR_PTR(error);
+    }
+#else
+    (void)qname;
+    (void)context_inode;
+    (void)error;
+#endif'''
+assert old in s, 'anon sec block not found'
+open('KernelSU/kernel/infra/file_wrapper.c', 'w').write(s.replace(old, new))
 PYEOF
 # dispatch.c 补 tasklist_lock/init_task/task_pgrp/task_session 所需头文件
 sed -i 's|#include <linux/version.h>|#include <linux/version.h>\n#include <linux/sched/signal.h>\n#include <linux/sched/task.h>|' KernelSU/kernel/supercall/dispatch.c
