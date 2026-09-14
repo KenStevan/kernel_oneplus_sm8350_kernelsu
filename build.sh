@@ -51,7 +51,13 @@ cd $BASE_PATH
 
 #kernel
 echo ">clone kernel source"
-git clone --depth 1 https://github.com/PixelOS-Lemonade/kernel_oneplus_sm8350 kernel
+# 锁定与 ROM (PixelOS_lemonade-15.0-20250208) 完全相同的内核 commit, HEAD 已与旧 ROM 不配套
+git init -q kernel
+cd kernel
+git remote add origin https://github.com/PixelOS-Lemonade/kernel_oneplus_sm8350
+git fetch --depth 1 origin 07863b33c6b8c70a922fa2c9ed41b9009789bc01
+git checkout -q FETCH_HEAD
+cd $BASE_PATH
 
 #Scoped Hook
 if [[ $SCOPED_HOOK == "true" ]]; then
