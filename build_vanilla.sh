@@ -37,7 +37,7 @@ cd $BASE_PATH
 python3 - <<'PYEOF'
 s = open('kernel/fs/userfaultfd.c').read()
 s = s.replace('vma_pad_fixup_flags(vma, new_flags););', 'vma_pad_fixup_flags(vma, new_flags));')
-open('fs/userfaultfd.c', 'w').write(s)
+open('kernel/fs/userfaultfd.c', 'w').write(s)
 PYEOF
 
 echo ">build kernel"
