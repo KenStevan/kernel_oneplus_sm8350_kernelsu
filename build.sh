@@ -75,6 +75,14 @@ curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kern
 git apply ../0001-backport-path-umount.patch
 git apply ../0002-backport-strncpy-from-user-nofault.patch
 git apply ../0003-no-dirty-flag.patch
+# 5.4 bisect: disable syscall table rewriting (patch_text on sys_call_table suspected boot crash)
+python3 - <<'PY2'
+s = open('KernelSU/kernel/hook/arm64/syscall_hook.c').read()
+needle = 'void __init ksu_syscall_hook_init(void)\n{\n    int ni_slot;'
+repl = 'void __init ksu_syscall_hook_init(void)\n{\n    pr_info("ksu: syscall table hook disabled in 5.4 build\\n");\n    return;\n    int ni_slot;'
+assert needle in s, 'pattern missing'
+open('KernelSU/kernel/hook/arm64/syscall_hook.c','w').write(s.replace(needle, repl))
+PY2
 echo "CONFIG_KSU=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 echo "CONFIG_KPM=y" >> arch/arm64/configs/vendor/lahaina-qgki_defconfig
 # 新版 Neutron clang 与 5.4 老内核的 CFI/LTO/SCS 加固不兼容 (CFI 类型哈希布局变化会导致无法启动), 全部关闭
